@@ -159,37 +159,39 @@ def separate_entries(entries, citation_keys):
             unused_entries.append(entry)
     return used_entries, unused_entries
 
+from collections import defaultdict
+
 def sort_entries(entries):
     grouped_entries = defaultdict(list)
     for entry in entries:
         entry_type = entry.get('ENTRYTYPE', 'misc').lower()
         grouped_entries[entry_type].append(entry)
+    
     # Define the desired type order
     type_order = ['inproceedings', 'article', 'proceedings', 'book', 'misc']
     remaining_types = sorted(set(grouped_entries.keys()) - set(type_order))
     full_type_order = type_order + remaining_types
-    sorted_entries = []
+
+    # Sort entries within each type by title
+    sorted_groups = {}
     for entry_type in full_type_order:
         entries_of_type = grouped_entries.get(entry_type, [])
         entries_of_type.sort(key=lambda e: e.get('title', '').lower())
-        sorted_entries.extend(entries_of_type)
-    return sorted_entries
+        sorted_groups[entry_type] = entries_of_type
+    
+    return sorted_groups
 
-def write_bib_file(output_path, used_entries, unused_entries, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields):
+
+def write_bib_file(output_path, used_entries, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields):
     writer = bibtexparser.bwriter.BibTexWriter()
     writer.indent = '    '
     with open(output_path, 'w', encoding='utf-8') as bib_file:
-        bib_file.write('USED BIBS\n\n')
         if used_entries:
-            used_db = bibtexparser.bibdatabase.BibDatabase()
-            used_db.entries = used_entries
-            bib_file.write(writer.write(used_db))
-        bib_file.write('\n% ------below here is unused\n\n')
-        bib_file.write('UNUSED BIBS\n\n')
-        if unused_entries:
-            unused_db = bibtexparser.bibdatabase.BibDatabase()
-            unused_db.entries = unused_entries
-            bib_file.write(writer.write(unused_db))
+            for entry_type, entries in used_entries.items():
+                bib_file.write(f'% {entry_type.upper()}\n\n')
+                used_db = bibtexparser.bibdatabase.BibDatabase()
+                used_db.entries = entries
+                bib_file.write(writer.write(used_db))
         if discrepancies:
             bib_file.write('\n% Discrepancies in booktitle/journal names:\n\n')
             for variation_set in discrepancies:
@@ -216,7 +218,7 @@ def write_bib_file(output_path, used_entries, unused_entries, discrepancies, mis
         # Print category fields
         bib_file.write('\n% Fields used in each category:\n')
         for entry_type, fields in category_fields.items():
-            bib_file.write(f'% Entry Type: @{entry_type}\n')
+            bib_file.write(f'% Entry Type: {entry_type}\n')
             bib_file.write(f'% Fields: {", ".join(sorted(fields))}\n\n')
 
 def main(project_directory):
@@ -258,8 +260,8 @@ def main(project_directory):
     unused_entries = sort_entries(unused_entries)
     used_output_bib_path = os.path.join(project_directory, 'used_sorted_references.bib')
     unused_output_bib_path = os.path.join(project_directory, 'unused_sorted_references.bib')
-    write_bib_file(used_output_bib_path, used_entries, None, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields)
-    write_bib_file(unused_output_bib_path, None, unused_entries, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields)
+    write_bib_file(used_output_bib_path, used_entries, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields)
+    write_bib_file(unused_output_bib_path, unused_entries, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields)
     print(f'Processed bibliography saved to {used_output_bib_path} and {unused_output_bib_path}')
 
 if __name__ == '__main__':
