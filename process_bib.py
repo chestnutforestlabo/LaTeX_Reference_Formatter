@@ -4,26 +4,27 @@ import sys
 import bibtexparser
 from collections import defaultdict
 
-def extract_citation_keys(tex_directory):
+def extract_citation_keys(tex_directories):
     citation_keys = set()
     # Pattern to match all \cite commands
     cite_pattern = re.compile(r'\\cite[a-zA-Z]*\*?{([^}]+)}')
-    for root, _, files in os.walk(tex_directory):
-        for filename in files:
-            if filename.endswith('.tex'):
-                filepath = os.path.join(root, filename)
-                with open(filepath, 'r', encoding='utf-8') as file:
-                    content = file.read()
-                    matches = cite_pattern.findall(content)
-                    for match in matches:
-                        keys = [key.strip() for key in match.split(',')]
-                        citation_keys.update(keys)
+    for tex_directory in tex_directories:
+        for root, _, files in os.walk(tex_directory):
+            for filename in files:
+                if filename.endswith('.tex'):
+                    filepath = os.path.join(root, filename)
+                    with open(filepath, 'r', encoding='utf-8') as file:
+                        content = file.read()
+                        matches = cite_pattern.findall(content)
+                        for match in matches:
+                            keys = [key.strip() for key in match.split(',')]
+                            citation_keys.update(keys)
     return citation_keys
 
 def read_bib_files(bib_directory):
     all_entries = {}
     for filename in os.listdir(bib_directory):
-        if filename.endswith('.bib'):
+        if filename.endswith('main.bib'):
             filepath = os.path.join(bib_directory, filename)
             with open(filepath, 'r', encoding='utf-8') as bib_file:
                 bib_database = bibtexparser.load(bib_file)
@@ -44,35 +45,21 @@ def correct_capitalization(entry):
         entry['author'] = standardize_authors(entry['author'])
 
 def title_case(title):
-    small_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor',
-                   'on', 'at', 'to', 'from', 'by', 'of', 'in', 'out', 'over',
-                   'with', 'is', 'ok', 'as', 'if', 'be', 'into', 'than', 'that'}
-    # Regular expression to split the title into words and LaTeX commands/braces
-    pattern = re.compile(r'(\\[a-zA-Z]+\{.*?\}|{.*?}|[^\s]+)')
-    tokens = pattern.findall(title)
-    new_title_parts = []
-    num_tokens = len(tokens)
-    for i, token in enumerate(tokens):
-        if token.startswith('\\') or (token.startswith('{') and token.endswith('}')):
-            # LaTeX command or group, leave as is
-            new_title_parts.append(token)
-        else:
-            word = token
-            if word.isupper():
-                # Leave words in all caps as is
-                new_word = word
-            else:
-                # Decide whether to capitalize
-                if i == 0 or i == num_tokens - 1:
-                    # Always capitalize first and last word
-                    new_word = word.capitalize()
-                elif word.lower() in small_words:
-                    new_word = word.lower()
-                else:
-                    new_word = word.capitalize()
-            new_title_parts.append(new_word)
-    new_title = ' '.join(new_title_parts)
-    return new_title
+    # List of lowercase words that shouldn't be capitalized unless they're the first or last word
+    lowercase_words = {"a", "an", "and", "as", "at", "but", "by", "for", "in", "nor", "of", "on", "or", "so", "the", "to", "up", "yet"}
+    
+    # Split the title into words
+    words = title.split()
+    
+    # Capitalize each word according to title case rules, preserving original capitalization
+    title_cased_words = [
+        word if (i != 0 and i != len(words) - 1 and word.lower() in lowercase_words) else word[0].upper() + word[1:]
+        for i, word in enumerate(words)
+    ]
+    
+    # Join the words back into a single string
+    return ' '.join(title_cased_words)
+
 
 def standardize_authors(author_field):
     # Split authors and standardize names as "Last Name, First Name"
@@ -229,16 +216,23 @@ def write_bib_file(output_path, used_entries, unused_entries, discrepancies, mis
         # Print category fields
         bib_file.write('\n% Fields used in each category:\n')
         for entry_type, fields in category_fields.items():
-            bib_file.write(f'% Entry Type: {entry_type}\n')
+            bib_file.write(f'% Entry Type: @{entry_type}\n')
             bib_file.write(f'% Fields: {", ".join(sorted(fields))}\n\n')
 
 def main(project_directory):
+    # Define the directories to search for .tex files
     sections_dir = os.path.join(project_directory, 'sections')
-    citation_keys = extract_citation_keys(sections_dir)
+    tables_dir = os.path.join(project_directory, 'table')
+    tex_directories = [sections_dir, tables_dir]
+    # Extract citation keys from all specified directories
+    citation_keys = extract_citation_keys(tex_directories)
     all_entries = read_bib_files(project_directory)
     # Correct capitalization
-    for entry in all_entries:
-        correct_capitalization(entry)
+
+    # Not using as we dont want inaccuracy in the data
+    # for entry in all_entries:
+    #     correct_capitalization(entry)
+
     # Unify entry fields within each category
     category_fields = unify_entry_fields(all_entries)
     # Detect discrepancies
@@ -262,9 +256,11 @@ def main(project_directory):
     used_entries, unused_entries = separate_entries(all_entries, citation_keys)
     used_entries = sort_entries(used_entries)
     unused_entries = sort_entries(unused_entries)
-    output_bib_path = os.path.join(project_directory, 'sorted_references.bib')
-    write_bib_file(output_bib_path, used_entries, unused_entries, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields)
-    print(f'Processed bibliography saved to {output_bib_path}')
+    used_output_bib_path = os.path.join(project_directory, 'used_sorted_references.bib')
+    unused_output_bib_path = os.path.join(project_directory, 'unused_sorted_references.bib')
+    write_bib_file(used_output_bib_path, used_entries, None, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields)
+    write_bib_file(unused_output_bib_path, None, unused_entries, discrepancies, missing_fields_report, booktitles, publishers, journals, category_fields)
+    print(f'Processed bibliography saved to {used_output_bib_path} and {unused_output_bib_path}')
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
