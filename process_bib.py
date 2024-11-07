@@ -229,7 +229,7 @@ def write_bib_file(output_path, used_entries, unused_entries, discrepancies, mis
         # Print category fields
         bib_file.write('\n% Fields used in each category:\n')
         for entry_type, fields in category_fields.items():
-            bib_file.write(f'% Entry Type: @{entry_type}\n')
+            bib_file.write(f'% Entry Type: {entry_type}\n')
             bib_file.write(f'% Fields: {", ".join(sorted(fields))}\n\n')
 
 def main(project_directory):
