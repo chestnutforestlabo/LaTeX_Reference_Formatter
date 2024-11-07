@@ -41,12 +41,12 @@ def correct_capitalization(entry):
     if 'title' in entry:
         entry['title'] = title_case(entry['title'])
     # Correct capitalization for 'author' field
-    if 'author' in entry:
-        entry['author'] = standardize_authors(entry['author'])
+    # if 'author' in entry:
+    #     entry['author'] = standardize_authors(entry['author'])
 
 def title_case(title):
     # List of lowercase words that shouldn't be capitalized unless they're the first or last word
-    lowercase_words = {"a", "an", "and", "as", "at", "but", "by", "for", "in", "nor", "of", "on", "or", "so", "the", "to", "up", "yet"}
+    lowercase_words = {"with", "a", "an", "and", "as", "at", "but", "by", "for", "in", "nor", "of", "on", "or", "so", "the", "to", "up", "yet"}
     
     # Split the title into words
     words = title.split()
@@ -232,8 +232,8 @@ def main(project_directory):
     # Correct capitalization
 
     # Not using as we dont want inaccuracy in the data
-    # for entry in all_entries:
-    #     correct_capitalization(entry)
+    for entry in all_entries:
+        correct_capitalization(entry)
 
     # Unify entry fields within each category
     category_fields = unify_entry_fields(all_entries)
