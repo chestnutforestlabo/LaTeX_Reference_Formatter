@@ -121,11 +121,18 @@ def collect_unique_fields(entries):
     return booktitles, publishers, journals
 
 def check_required_fields(entry, required_fields, missing_fields_report):
+    # Remove fields that are not in required_fields
+    fields_to_remove = [field for field in entry if field not in required_fields and field not in {'ID', 'ENTRYTYPE'}]
+    for field in fields_to_remove:
+        del entry[field]
+    
+    # Check for missing required fields and add them with empty values
     missing_fields = []
     for field in required_fields:
         if field not in entry:
             entry[field] = ''  # Add missing field with empty value
             missing_fields.append(field)
+    
     if missing_fields:
         missing_fields_report.append({
             'ID': entry['ID'],
@@ -141,12 +148,12 @@ def unify_entry_fields(entries):
         fields = set(entry.keys()) - {'ID', 'ENTRYTYPE'}
         category_fields[entry_type].update(fields)
     # Ensure each entry has all fields for its category
-    for entry in entries:
-        entry_type = entry.get('ENTRYTYPE', '').lower()
-        all_fields = category_fields[entry_type]
-        for field in all_fields:
-            if field not in entry:
-                entry[field] = ''  # Add missing field with empty value
+    # for entry in entries:
+    #     entry_type = entry.get('ENTRYTYPE', '').lower()
+    #     all_fields = category_fields[entry_type]
+    #     for field in all_fields:
+    #         if field not in entry:
+    #             entry[field] = ''  # Add missing field with empty value
     return category_fields
 
 def separate_entries(entries, citation_keys):
@@ -244,17 +251,17 @@ def main(project_directory):
     # Check for missing required fields and add them if missing
     missing_fields_report = []
     required_fields_mapping = {
-        'article': ['author', 'title', 'journal', 'year', 'doi'],
-        'inproceedings': ['author', 'title', 'booktitle', 'year', 'doi'],
-        'proceedings': ['editor', 'title', 'year'],
+        'article': ['author', 'title', 'journal', 'year'],
+        'inproceedings': ['author', 'title', 'booktitle', 'year'],
         'book': ['author', 'title', 'publisher', 'year'],
-        'misc': ['author', 'title', 'howpublished', 'year'],
+        'misc': ['author', 'title', 'journal', 'howpublished', 'year'],
         # Add other entry types and their required fields as needed
     }
     for entry in all_entries:
         entry_type = entry.get('ENTRYTYPE', '').lower()
         required_fields = required_fields_mapping.get(entry_type, [])
         check_required_fields(entry, required_fields, missing_fields_report)
+
     used_entries, unused_entries = separate_entries(all_entries, citation_keys)
     used_entries = sort_entries(used_entries)
     unused_entries = sort_entries(unused_entries)
