@@ -1,30 +1,41 @@
 import os
 import re
-import sys
 import bibtexparser
 from collections import defaultdict
 
-def extract_citation_keys(tex_directories):
+conference_format_mapping = {
+    'CVPR': {
+        'article': ['author', 'title', 'journal', 'year'],
+        'inproceedings': ['author', 'title', 'booktitle', 'year'],
+        'book': ['author', 'title', 'publisher', 'year'],
+        'misc': ['author', 'title', 'journal', 'howpublished', 'year'],
+    },
+    'CHI': {
+        'article': ['author', 'title', 'journal', 'year'],
+        'inproceedings': ['author', 'title', 'booktitle', 'year'],
+        'book': ['author', 'title', 'publisher', 'year'],
+        'misc': ['author', 'title', 'journal', 'howpublished', 'year'],
+    },
+}
+
+def extract_citation_keys(tex_files):
     citation_keys = set()
     # Pattern to match all \cite commands
     cite_pattern = re.compile(r'\\cite[a-zA-Z]*\*?{([^}]+)}')
-    for tex_directory in tex_directories:
-        for root, _, files in os.walk(tex_directory):
-            for filename in files:
-                if filename.endswith('.tex'):
-                    filepath = os.path.join(root, filename)
-                    with open(filepath, 'r', encoding='utf-8') as file:
-                        content = file.read()
-                        matches = cite_pattern.findall(content)
-                        for match in matches:
-                            keys = [key.strip() for key in match.split(',')]
-                            citation_keys.update(keys)
+
+    for filepath in tex_files:
+        with open(filepath, 'r', encoding='utf-8') as file:
+            content = file.read()
+            matches = cite_pattern.findall(content)
+            for match in matches:
+                keys = [key.strip() for key in match.split(',')]
+                citation_keys.update(keys)
     return citation_keys
 
-def read_bib_files(bib_directory):
+def read_bib_files(bib_directory, bib_filename):
     all_entries = {}
     for filename in os.listdir(bib_directory):
-        if filename.endswith('main.bib'):
+        if filename.endswith(bib_filename):
             filepath = os.path.join(bib_directory, filename)
             with open(filepath, 'r', encoding='utf-8') as bib_file:
                 bib_database = bibtexparser.load(bib_file)
@@ -147,13 +158,6 @@ def unify_entry_fields(entries):
         entry_type = entry.get('ENTRYTYPE', '').lower()
         fields = set(entry.keys()) - {'ID', 'ENTRYTYPE'}
         category_fields[entry_type].update(fields)
-    # Ensure each entry has all fields for its category
-    # for entry in entries:
-    #     entry_type = entry.get('ENTRYTYPE', '').lower()
-    #     all_fields = category_fields[entry_type]
-    #     for field in all_fields:
-    #         if field not in entry:
-    #             entry[field] = ''  # Add missing field with empty value
     return category_fields
 
 def separate_entries(entries, citation_keys):
@@ -228,35 +232,29 @@ def write_bib_file(output_path, used_entries, discrepancies, missing_fields_repo
             bib_file.write(f'% Entry Type: {entry_type}\n')
             bib_file.write(f'% Fields: {", ".join(sorted(fields))}\n\n')
 
-def main(project_directory):
-    # Define the directories to search for .tex files
-    sections_dir = os.path.join(project_directory, 'sections')
-    tables_dir = os.path.join(project_directory, 'table')
-    tex_directories = [sections_dir, tables_dir]
-    # Extract citation keys from all specified directories
-    citation_keys = extract_citation_keys(tex_directories)
-    all_entries = read_bib_files(project_directory)
-    # Correct capitalization
+def find_tex_files(folder_path):
+    tex_files = []
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            if file.endswith('.tex'):
+                tex_files.append(os.path.join(root, file))
+    return tex_files
 
-    # Not using as we dont want inaccuracy in the data
+def main(args):
+    project_directory = os.path.join("projects",args.project_directory)
+    bib_filename = args.bib_file
+    tex_files = find_tex_files(project_directory)
+    citation_keys = extract_citation_keys(tex_files)
+    all_entries = read_bib_files(project_directory, bib_filename)
+
     for entry in all_entries:
         correct_capitalization(entry)
 
-    # Unify entry fields within each category
     category_fields = unify_entry_fields(all_entries)
-    # Detect discrepancies
     discrepancies = detect_booktitle_discrepancies(all_entries)
-    # Collect unique booktitles, publishers, and journals
     booktitles, publishers, journals = collect_unique_fields(all_entries)
-    # Check for missing required fields and add them if missing
     missing_fields_report = []
-    required_fields_mapping = {
-        'article': ['author', 'title', 'journal', 'year'],
-        'inproceedings': ['author', 'title', 'booktitle', 'year'],
-        'book': ['author', 'title', 'publisher', 'year'],
-        'misc': ['author', 'title', 'journal', 'howpublished', 'year'],
-        # Add other entry types and their required fields as needed
-    }
+    required_fields_mapping = conference_format_mapping[args.conference]
     for entry in all_entries:
         entry_type = entry.get('ENTRYTYPE', '').lower()
         required_fields = required_fields_mapping.get(entry_type, [])
@@ -272,7 +270,11 @@ def main(project_directory):
     print(f'Processed bibliography saved to {used_output_bib_path} and {unused_output_bib_path}')
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('Usage: python script_name.py /path/to/project_directory')
-    else:
-        main(sys.argv[1])
+    import argparse
+    parser = argparse.ArgumentParser(description='Sort and clean bibliography entries based on citation keys in LaTeX files.')
+    parser.add_argument('--project_directory', help='Path to the directory containing LaTeX files and bibliography files.')
+    # specify bib file directory
+    parser.add_argument('--bib_file', help='Name of the directory containing bibliography files.', default='reference.bib')
+    parser.add_argument('--conference', help='Conference name (e.g., CVPR, CHI).', default='CHI', choices=conference_format_mapping.keys)
+    args = parser.parse_args()
+    main(args)
