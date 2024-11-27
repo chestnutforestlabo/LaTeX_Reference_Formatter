@@ -5,16 +5,18 @@ from collections import defaultdict
 
 conference_format_mapping = {
     'CVPR': {
-        'article': ['author', 'title', 'journal', 'year'],
+        'article':       ['author', 'title', 'journal', 'year'],
         'inproceedings': ['author', 'title', 'booktitle', 'year'],
-        'book': ['author', 'title', 'publisher', 'year'],
-        'misc': ['author', 'title', 'journal', 'howpublished', 'year'],
+        'book':          ['author', 'title', 'publisher', 'year'],
+        'misc':          ['author', 'title', 'year', 'howpublished'],
+        'arxiv':         ['author', 'title', 'journal', 'year'],
     },
     'CHI': {
-        'article': ['author', 'title', 'journal', 'year'],
-        'inproceedings': ['author', 'title', 'booktitle', 'year'],
-        'book': ['author', 'title', 'publisher', 'year'],
-        'misc': ['author', 'title', 'journal', 'howpublished', 'year'],
+        'article':       ['author', 'title', 'journal', 'volume', 'number', 'year', 'address', 'publisher'],
+        'inproceedings': ['author', 'title', 'booktitle', 'year', 'address', 'publisher', 'pages'],
+        'book':          ['author', 'title', 'publisher', 'year', 'address', 'publisher'],
+        'misc':          ['author', 'title', 'howpublished', 'year'],
+        'arxiv':         ['author', 'title', 'journal', 'year'],
     },
 }
 
@@ -130,6 +132,12 @@ def collect_unique_fields(entries):
         if 'journal' in entry:
             journals.add(entry['journal'])
     return booktitles, publishers, journals
+
+def determine_arxiv(entry):
+    for field in entry:
+        if 'arxiv' in entry[field].lower():
+            return True
+    return False
 
 def check_required_fields(entry, required_fields, missing_fields_report):
     # Remove fields that are not in required_fields
@@ -255,7 +263,10 @@ def main(args):
     required_fields_mapping = conference_format_mapping[args.conference]
     for entry in all_entries:
         entry_type = entry.get('ENTRYTYPE', '').lower()
-        required_fields = required_fields_mapping.get(entry_type, [])
+        if entry_type == 'misc' and determine_arxiv(entry):
+            required_fields = required_fields_mapping.get('arxiv', [])
+        else:
+            required_fields = required_fields_mapping.get(entry_type, [])
         check_required_fields(entry, required_fields, missing_fields_report)
 
     used_entries, unused_entries = separate_entries(all_entries, citation_keys)
