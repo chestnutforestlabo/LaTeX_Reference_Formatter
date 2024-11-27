@@ -170,8 +170,6 @@ def separate_entries(entries, citation_keys):
             unused_entries.append(entry)
     return used_entries, unused_entries
 
-from collections import defaultdict
-
 def sort_entries(entries):
     grouped_entries = defaultdict(list)
     for entry in entries:
@@ -275,6 +273,6 @@ if __name__ == '__main__':
     parser.add_argument('--project_directory', help='Path to the directory containing LaTeX files and bibliography files.')
     # specify bib file directory
     parser.add_argument('--bib_file', help='Name of the directory containing bibliography files.', default='reference.bib')
-    parser.add_argument('--conference', help='Conference name (e.g., CVPR, CHI).', default='CHI', choices=conference_format_mapping.keys)
+    parser.add_argument('--conference', help='Conference name (e.g., CVPR, CHI).', default='CHI', choices=conference_format_mapping.keys())
     args = parser.parse_args()
     main(args)
