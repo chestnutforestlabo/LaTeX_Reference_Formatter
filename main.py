@@ -14,7 +14,7 @@ conference_format_mapping = {
     'CHI': {
         'article':       ['author', 'title', 'journal', 'volume', 'number', 'year', 'address', 'publisher'],
         'inproceedings': ['author', 'title', 'booktitle', 'year', 'address', 'publisher', 'pages'],
-        'book':          ['author', 'title', 'publisher', 'year', 'address', 'publisher'],
+        'book':          ['author', 'title', 'year', 'address', 'publisher'],
         'misc':          ['author', 'title', 'howpublished', 'year'],
         'arxiv':         ['author', 'title', 'journal', 'year'],
     },
